@@ -72,3 +72,4 @@ _python Analysis.py Output 'selection 1' 'selection 2'_
 where Output is the directory with SMD data, selection 1 is the constrained part of our system, and selection 2 is the pulled part of our system. 
 
 # multiSMD GROMACS
+To run multiSMD simulations in gromacs 
