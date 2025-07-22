@@ -1,11 +1,11 @@
 ###########################################################################################
 #
-#   Script creating an input for the Virtual Atomic Force Microscopy simulation. 
+#   Script creating an input for the multi-directional SMD simulation in NAMD. 
 #   Series of Steered MD simulations are performed each in different direction of pulling 
 #   to roughly cover a semisphere. Each simulation data is stored in separate directory. 
 #   To run it, you need to have numpy, scipy and MDAnalysis libraries installed.
 #
-#   Author: Katarzyna Walczewska-Szewc, Nicolaus Copernicus University in Toruń, 07.09.2021
+#   Author: Katarzyna Walczewska-Szewc, Nicolaus Copernicus University in Toruń, 07.09.2024
 ###########################################################################################
 
 from MDAnalysis import *
