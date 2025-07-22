@@ -1,5 +1,5 @@
 # multiSMD NAMD
-multiAFM.py is a python script to generate a whole set of inputs to run multi-directional Steered Molecular Dynamics simulations. Ultimately, it will be run automatically by the browser.
+multiSMD.py is a python script to generate a whole set of inputs to run multi-directional Steered Molecular Dynamics simulations. Ultimately, it will be run automatically by the browser.
 
 Before run...
 --------------------------
