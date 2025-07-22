@@ -17,11 +17,11 @@ Runing
 ------------------------
 Run the program in terminal (Linux) by typing in the command line (being in the directory where you downloaded the script):
 
-python multiAFM.py   (or python3 multiAFM.py  if python3 is not the default python installation) in the same line we added parameters.
+_python multiSMD.py_   (or python3 multiSMD.py  if python3 is not the default python installation) in the same line we added parameters.
 
 We call the program by giving it the following parameters:
 
-python viAFM.py file.pdb file.psf file.vel file.coor file.xsc toppar.zip template.inp template.run ‘selection constraints’ ‘selection pull’_
+_python multiSMD.py file.pdb file.psf file.vel file.coor file.xsc toppar.zip template.inp template.run ‘selection constraints’ ‘selection pull’_
 
 file.pdb        - the PDB structure of our system
 
@@ -70,3 +70,5 @@ The program can be called using the following parameters:
 _python Analysis.py Output 'selection 1' 'selection 2'_
 
 where Output is the directory with SMD data, selection 1 is the constrained part of our system, and selection 2 is the pulled part of our system. 
+
+# multiSMD GROMACS
