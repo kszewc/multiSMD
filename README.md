@@ -67,9 +67,43 @@ Analysing the output
 The Analysis.py script facilitates analyzing SMD simulation results. It iterates through subdirectories in the Output directory and extracts SMD information from mdrun.log files. Additionally, it checks the corresponding dcd files and calculates the number of hydrogen bonds formed between a given protein selection for each simulation.
 The program can be called using the following parameters:
 
-_python Analysis.py Output 'selection 1' 'selection 2'_
+_python Analysis.py Output 'selection 1' 'selection 2' n_repeats_
 
 where Output is the directory with SMD data, selection 1 is the constrained part of our system, and selection 2 is the pulled part of our system. 
 
 # multiSMD GROMACS
-To run multiSMD simulations in gromacs 
+To run multiSMD simulations in gromacs you also need to start from pre-equilibrated system input.
+Run the program in terminal (Linux) by typing in the command line (being in the directory where you downloaded the script):
+
+_python multiSMD_GRO.py_   (or python3 multiSMD_GRO.py  if python3 is not the default python installation) in the same line we added parameters.
+
+We call the program by giving it the following parameters:
+
+_python multiSMD.py file.pdb file.gro restart_md.zip template.mdp ‘selection constraints’ ‘selection pull’ n_repeats_
+
+file.pdb        - the PDB structure of our system (it is needed here for proper chain name information)
+
+file.gro        - the GRO file for our system
+
+restart_mdr.zip    - all files necessary to restart your simulation - topol.top, toppar, index.ndx etc. (including all forcefield parameters)
+
+template.mdp    - The template mdp file needs to have the SMD-controlling fragment already inside The exemplary input file can be found in the TEST_GRO.zip folder. __To avoid possible artifacts, please make sure that SMD simulations are performed in the NVT ensemble__ (the pressure control should be set off).
+
+‘selection’    - selections of constrained and pulled atoms 
+ in SMD simulation. These are text variables, necessarily in quotation marks ''. The convention for atom selection is as in MDAnalysis (https://docs.mdanalysis.org/1.1.0/documentation_pages/selections.html) i.e., 'name CA and protein and segid A B C' or 'name CA and resid 1:55 66:128', or 'name CA and resname PRO ALA NBD'. Unfortunately, there is no 'chain' selection, so you have to use 'segid' instead.
+It is recommended to restrain only CA atoms. The script produces an input file to Steered Molecular Dynamics (SMD_constraints.pdb) indicating which part should be restarined and which part will be pulled by changing values in columns O and B. 
+
+n_repeats - how many repeats of each pulling direction you wan to perform
+
+The default mode of SMD simulation in here is constant Velocity SMD, which means that the pulling force will be adjusted to provide a constant velocity in the direction of pulling.
+
+The program will generate an Output directory containing the input files and subdirectories corresponding to the "pull" directions. Each subdirectory contains an appropriately prepared input file to GROMACS.
+
+Analysing the output
+---------------------------------
+The Analysis_GRO.py script facilitates analyzing SMD simulation results. It iterates through subdirectories in the Output directory and extracts SMD information from mdrun.log files. Additionally, it checks the corresponding xtc files and calculates the number of hydrogen bonds formed between a given protein selection for each simulation.
+The program can be called using the following parameters:
+
+_python Analysis_GRO.py Output 'selection 1' 'selection 2' n_repeats file.pdb_
+
+where Output is the directory with SMD data, selection 1 is the constrained part of our system, and selection 2 is the pulled part of our system. 
