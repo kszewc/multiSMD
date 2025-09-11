@@ -1,17 +1,23 @@
 # multiSMD NAMD
-multiSMD.py is a python script to generate a whole set of inputs to run multi-directional Steered Molecular Dynamics simulations. Ultimately, it will be run automatically by the browser.
 
-Before run...
+This project is a user-friendly Python application that automates the generation of input files for multi-directional Steered Molecular Dynamics (SMD) simulations. The final application will be deployed as a web-based tool for streamlined execution.
+
+Installation
 --------------------------
-The script is written in the Python 3 standard (generally applicable). However, it requires the installation of several additional Python packages not included in the standard installation. These are NumPy, SciPy, and MDAnalysis.
+This script, written in Python 3, relies on several external packages for its functionality. The required dependencies include NumPy, SciPy, and MDAnalysis.
+The required dependencies can be installed in two ways:
 
-Install them using the pip command:
+1. Manual/implicit installation with pip or conda:
 
- _pip install numpy scipy MDAnalysis_
+ ```pip install numpy scipy MDAnalysis```
 
-or using conda:
+```conda install numpy scipy MDAnalysis```
 
-_conda install numpy scipy MDAnalysis_
+2. With provided `requirements.txt` file and _pip_ tool:
+
+```pip install -r requirements.txt```
+
+For consistent and reproducible results, the recommended method is to use the second one with provided requirements.txt file, which specifies the exact versions of all tested dependencies.
 
 Runing
 ------------------------
