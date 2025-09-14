@@ -4,11 +4,10 @@ import os,sys
 import matplotlib.pyplot as plt
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
 
-def Dist(a, b):
-    r = sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
-    return r
+def distance(a, b):
+    return sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
 
-def plot_vectors(filename, theta,phi, ax, start_point=(0, 0, 0)):
+def plot_vectors(filename, theta, phi, ax, start_point=(0, 0, 0)):
     # Draw a bunch of vectors from file and highlight one to red
 
     # loading data
@@ -197,3 +196,6 @@ plt.savefig(name+'/all.png',dpi=600)
 
 
 plt.show()
+
+if __name__ == '__main__':
+    pass

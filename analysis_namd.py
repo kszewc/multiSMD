@@ -4,9 +4,8 @@ import os,sys
 import matplotlib.pyplot as plt
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
 
-def Dist(a, b):
-    r = sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
-    return r
+def distance(a, b):
+    return sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
 
 name = str(sys.argv[1]) # Name of your SMD output directory
 sel_const = str(sys.argv[2]) # First selection (to calculate center of mass and H-bonds) - constrained part
@@ -44,7 +43,7 @@ for dir in list_of_dirs:
                         r = array([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])]) # COM position of pulled domain
                         f = array([float(line.split()[5]),float(line.split()[6]),float(line.split()[7])]) # Pulling force, starting from COM
                         ft.write(t+' '+str(((f[0]-r[0])**2 + (f[1]-r[1])**2 + (f[2]-r[2])**2)**0.5)+'\n')
-                        fd.write(str(Dist(r,fix))+' '+str(((f[0]-r[0])**2 + (f[1]-r[1])**2 + (f[2]-r[2])**2)**0.5)+'\n')
+                        fd.write(str(distance(r, fix)) + ' ' + str(((f[0] - r[0]) ** 2 + (f[1] - r[1]) ** 2 + (f[2] - r[2]) ** 2) ** 0.5) + '\n')
             ft.close()
             fd.close()
 
@@ -154,3 +153,6 @@ plt.savefig(name+'/all.png',dpi=600)
 
 
 plt.show()
+
+if __name__ == '__main__':
+    pass
