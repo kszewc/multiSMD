@@ -283,7 +283,7 @@ def main(args: argparse.Namespace):
 
     # Step 1: Generate the set of vectors for the SMD pulling
     print('Generating the cone of vectors...')
-    vectors, labels, pull_com = construct_hedgehog(args.input_pdb, args.sel1, args.sel2)
+    vectors, labels, pull_com = construct_hedgehog(args.input_pdb, args.input_sel1, args.input_sel2)
     hedgehog = (vectors, labels, pull_com)
 
     # Use pathlib for safe and clean directory creation
@@ -294,7 +294,7 @@ def main(args: argparse.Namespace):
     print('Generating input files and directory structure...')
     generate_input(
         args.output_dir, args.input_pdb, args.input_psf, hedgehog, args.template_inp,
-        args.sel1, args.sel2, args.input_par1,
+        args.input_sel1, args.input_sel2, args.input_par1,
         vel=args.input_vel, coor=args.input_coor, xsc=args.input_xsc,
         n_repeats=args.repeats
     )
@@ -337,9 +337,9 @@ if __name__ == '__main__':
                         help='Path to the template bash run script (.run).')
 
     # Selection parameters for SMD
-    parser.add_argument('sel1', type=str,
+    parser.add_argument('input_sel1', type=str,
                         help='MDAnalysis selection criteria for the constrained atoms (fixed group).')
-    parser.add_argument('sel2', type=str,
+    parser.add_argument('input_sel2', type=str,
                         help='MDAnalysis selection criteria for the pulled atoms (pulled group).')
     parser.add_argument('--repeats', type=int, default=1,
                         help='Number of simulation repeats for each pulling direction (default: 1).')
