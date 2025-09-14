@@ -2,11 +2,7 @@ from numpy import *
 from MDAnalysis import *
 import os,sys
 import matplotlib.pyplot as plt
-import matplotlib
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
-from mpl_toolkits.mplot3d import Axes3D
-
-
 
 def Dist(a, b):
     r = sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
@@ -14,7 +10,6 @@ def Dist(a, b):
 
 def plot_vectors(filename, theta,phi, ax, start_point=(0, 0, 0)):
     # Draw a bunch of vectors from file and highlight one to red
-
 
     # loading data
     data = loadtxt(filename)
@@ -154,17 +149,11 @@ for dir, s in zip(sorted[:],scale):
     # axsv[i] = figv.add_subplot(3,1,1+i,projection='3d')
     # plot_vectors(filename,theta,phi,axsv[i])
 
-
-
-
     print(shape(ft))
     for j in range(shape(ft)[0]):
         for k in [1,2,3]:
             if ft[j,k] < 0 or ft[j,k] > 600:
                 ft[j,k] = ft[j-1,k]
-
-
-
 
     #Force vs time
     ax[i, 0].fill_between(ft[:g:red, 0] / 1000, mean(ft[:g:red,1:],axis=1) + std(ft[:g:red,1:],axis=1), mean(ft[:g:red,1:],axis=1) - std(ft[:g:red,1:],axis=1), linewidth=1,alpha=0.5)
@@ -175,7 +164,6 @@ for dir, s in zip(sorted[:],scale):
     #ax[i,0].set_xticks(14)
     if i == 1: ax[i,0].set_ylabel('Force [pN]')
     #ax[i,0].yticks(size=14)
-
 
     #Force vs distance
     #ax[i, 1].fill_between(fd[:, 0], mean(fd[:, 1:], axis=1) + std(fd[:, 1:], axis=1),

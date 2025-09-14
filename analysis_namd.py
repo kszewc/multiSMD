@@ -2,13 +2,11 @@ from numpy import *
 from MDAnalysis import *
 import os,sys
 import matplotlib.pyplot as plt
-import matplotlib
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
 
 def Dist(a, b):
     r = sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
     return r
-
 
 name = str(sys.argv[1]) # Name of your SMD output directory
 sel_const = str(sys.argv[2]) # First selection (to calculate center of mass and H-bonds) - constrained part
