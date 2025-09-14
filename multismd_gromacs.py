@@ -1,0 +1,322 @@
+"""Script for setting up multi-directional SMD simulations in Gromacs.
+
+This script generates all necessary input files and the directory structure
+for a series of Steered Molecular Dynamics (SMD) simulations. The simulations
+are set up to pull a selection of atoms along a set of vectors that
+roughly cover a hemisphere, with each simulation's data stored in a
+separate directory.
+
+To run this script, the following Python libraries are required:
+  - numpy
+  - scipy
+  - MDAnalysis
+
+Author: Katarzyna Walczewska-Szewc
+Affiliation: Nicolaus Copernicus University in Toruń
+Date: 2024-2025
+"""
+import argparse
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+from MDAnalysis import *
+from numpy import *
+from scipy.spatial.transform import Rotation
+import os
+import sys
+from zipfile import ZipFile
+##########################################################################################
+#
+#   The input data and parameters
+#
+##########################################################################################
+
+dirname = 'Output' # name of the new directory
+
+
+def construct_hedgehog(pdb: str, fix_selection: str, pull_selection: str) -> Any:
+    """
+    Generates a set of sampling vectors, commonly called a "hedgehog"
+    aligned in a specific direction defined by two selections of atoms in a PDB file.
+
+    Parameters:
+    - pdb (str): The path to the PDB file.
+    - fix_selection (str): The atom selection criteria for the "fixed" group.
+    - pull_selection (str): The atom selection criteria for the "pulled" group.
+
+    Returns:
+    - hedgehog (numpy.ndarray): An array of vectors (N, 3) that sample the hemisphere.
+    - labels (numpy.ndarray): An array of labels (N, 2) containing the spherical
+      coordinates [theta, phi] for each vector.
+    - pull_com (numpy.ndarray): The [x, y, z] coordinates of the center of mass
+      of the "pulled" group.
+    """
+    u = Universe(pdb)
+    fix_com = u.select_atoms(fix_selection).center_of_mass()
+    pull_com = u.select_atoms(pull_selection).center_of_mass()
+
+    # Define the principal axis
+    ax_principal = pull_com - fix_com
+    ax_principal_unit = ax_principal / linalg.norm(ax_principal)
+
+    print(f"Principal axis unit vector: {ax_principal_unit}")
+
+    # Generating a "hedgehog" of vectors in z-direction
+    hedgehog = array([[0,0,1]])
+    labels = array([[0, 0]])
+    for theta,resolution in zip([45,90],[90,90]):#[15,30,45,60,75,90],[90,75,60,45,30,15]):
+        for phi in range(0,360,resolution):
+            x = cos(deg2rad(phi))*sin(deg2rad(theta))
+            y = sin(deg2rad(phi))*sin(deg2rad(theta))
+            z = cos(deg2rad(theta))
+
+            hedgehog = concatenate((hedgehog,array([[x,y,z]])),axis=0)
+            # Labels for subdirectories names construction
+            labels = concatenate((labels,array([[theta,phi]])),axis=0)
+
+    # Transforming the vector cone to the direction given by the principal axis
+    r = Rotation.align_vectors([ax_principal_unit],[[0,0,1]])
+    hedgehog = r[0].apply(hedgehog)
+    # The translation of the cone's anchor to the COM of the pulled protein is not
+    # necessary because NAMD handles it automatically.
+
+    # Set of vectors [N][x,y,z], set of angles [N][theta,phi], the pulling point [x,y,z]
+    return hedgehog, labels, pull_com
+
+
+##############################################################################################
+#
+#   Function generating a tree of directories containing input and run  files for each SMD run
+#   The template.inp and run.bash files are modified and placed in proper directories. The copies of the GROMACS restart files
+#   are created in the output directory, to make it self-sustainable.
+#
+##############################################################################################
+
+
+def generate_input(name, pdb, vectors, template, sel1, sel2, mdf, n_repeats: int = 1):
+    """
+    Generates a directory tree with input files for multiple Steered Molecular Dynamics (SMD) simulations.
+
+    This function prepares the directory structure and modifies template files for each
+    simulation run. It copies necessary structure files, extracts a simulation template,
+    and modifies it to include specific pulling vectors and atom selections.
+
+    Generated output directory structure:
+    name/ - the main output directory
+        SMD_constraints.pdb - contains flags for fixed and pulled atoms
+        SMD_theta_i_phi_j/ - a subdirectory for each SMD direction
+            mdrun.mdp - the modified input file for the simulation
+        vmd_script.tcl - a script for visualizing the pulling vectors (generated below)
+
+    Parameters:
+    - name (str): The name of the main output directory.
+    - pdb (str): Path to the PDB file.
+    - vectors (list): A tuple containing a numpy array of vectors and a numpy
+      array of corresponding spherical coordinate labels, as generated by
+      the `construct_hedgehog` function.
+    - template (str): Path to the template `.mdp` file to be modified for each run.
+    - sel1 (str): A string representing the selection syntax for fixed atoms.
+      (Note: The code does not currently use this variable).
+    - sel2 (str): A string representing the selection syntax for the pulled atom.
+    - mdf (str): Path to a zipped folder containing the simulation input files.
+      The folder is expected to contain a file named 'mdrun.mdp'.
+    """
+
+    # Remove the output directory if it exists to ensure a clean start.
+    os.system(f'rm -rf {name}')
+
+    # Create the main output directory and copy necessary structure files
+    os.system('mkdir '+str(name))
+    os.system('cp '+str(pdb)+' '+str(name)+'/')
+
+    # Creating SMD_constraints.pdb file with flags in O and B column indicating fixed and pulled atoms
+    u = Universe(pdb)
+
+    pul = u.select_atoms(sel2)
+
+
+    # Creating subdirectories for all directions in the semisphere
+    for v,l in zip(vectors[0],vectors[1]):
+        print('theta_' + str(int(l[0])) + '_phi_' + str(int(l[1])))
+
+        with ZipFile(mdf,'r') as z:
+             z.extractall(str(name)+'/')
+        m = mdf.split('/')[-1]
+        os.system(f'mv {name}/{m[:-4]} ' + str(name) + '/SMD_theta_' + str(int(l[0])) + '_phi_' + str(int(l[1])))
+
+        # Modyfying the mdrun.mdp file for each SMD run (the only difference between them is the direction of pulling)
+        
+
+        f = open(template,'r')
+        new_f= open(f'{name}/SMD_theta_{int(l[0])}_phi_{int(l[1])}/mdrun.mdp','w')  # several repearts of simulation is produced
+
+
+        for line in f.readlines():
+            if line[0:15] == 'pull-coord1-vec':
+                new_f.write(f'pull-coord1-vec		= {v[0]} {v[1]} {v[2]} \n')
+            elif line[0:15] == 'pull-group1-pbc':
+                new_f.write(f'pull-group1-pbcatom	= {pul.atoms[0].index} \n')
+            else:
+                new_f.write(line)
+        new_f.close()
+        f.close()
+
+
+# Not working yet
+def generate_bash_run_scripts(name: str, label: np.ndarray, template: str, n_repeats: int = 1) -> None:
+    """
+    Generates and initiates simulation run scripts for Steered Molecular Dynamics (SMD) simulations.
+
+    This function creates a `run.bash` file for each simulation run within a structured
+    subdirectory tree. It reads from a `template.bash` file and replaces specific
+    placeholders with run-specific information, such as job names and input/output
+    filenames.
+
+    The function also generates a `master.run` file that can be used to execute all
+    generated run scripts.
+
+    NOTE: This script is not yet compatible with GROMACS. Please run GROMACS simulations
+    manually. The template.bash file must be configured to match your computing facility's
+    job submission system (e.g., SLURM, PBS).
+
+    Parameters:
+    - name (str): The name of the main output directory.
+    - label (numpy.ndarray): An array of labels (N, 2) containing the spherical
+      coordinates [theta, phi] for each vector, as generated by `construct_hedgehog`.
+    - template (str): Path to the template bash script file (`.bash`).
+    """
+    master_file = open(str(name)+'/master.run','w')
+    for l in label:
+        # Generating run.bash files
+        
+        for n in range(0,n_repeats):
+            f = open(template,'r')
+            new_f= open(str(name)+'/SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/run{n}.bash','w')
+            for line in f.readlines():
+                line_new = line
+                if len(line.split())>1 and line.split()[1] == '-J': line_new = line.split()[0] + ' ' + line.split()[1] +' SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+'\n'
+
+                if len(line.split())>1 and line.split()[1][0:4] == 'INPF': line_new = 'set INPF=SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/mdrun{n}.inp'+'\n'
+                if line[0:4] == 'INPF': line_new = f'INPF=mdrun{n}.inp'+'\n'
+                if line[0:4] == 'OUTF': line_new = f'OUTF=mdrun{n}.log'+'\n'
+
+                if len(line.split())>1 and line.split()[1][0:4] == 'OUTF': line_new = 'set OUTF=SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/mdrun{n}.log'+'\n'
+                new_f.write(line_new)
+            #print('qsub '+str(name)+'/SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/run{n}.bash')
+            new_f.close()
+
+
+            # Runing the simulations
+            os.system('chmod +x '+str(name)+'/SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/run{n}.bash')
+            #print('Running simulation for SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1])))
+            #os.system('. '+str(name)+'/SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/run{n}.bash &') # If you are using this script on a supercomputer, all jobs can run simultanously
+            master_file.write('. SMD_theta_'+str(int(l[0]))+'_phi_'+str(int(l[1]))+f'/run{n}.bash\n') # On a single gpu station, it could be better to run one job after one (the line without & at the end so the next job is waiting for the one to finish)
+            f.close()
+    master_file.close()
+    os.system('chmod +x '+str(name)+'/master.run')
+
+
+def generate_visualisation_script(name: str, vector: np.ndarray, com: np.ndarray) -> None:
+    """
+    Generates a Tcl script for VMD to visualize a set of pulling vectors as a
+    cone, anchored at a specific center of mass.
+
+    The script creates a custom VMD procedure for drawing arrows and then uses
+    this procedure to draw each vector from the specified center of mass,
+    scaling them for better visibility. The resulting script is saved to
+    the main output directory.
+
+    Parameters:
+    - name (str): The name of the main output directory where the script will be saved.
+    - vector (numpy.ndarray): A numpy array of 3D vectors. These vectors are
+      typically the output from a function like `construct_hedgehog`.
+    - com (numpy.ndarray): The 3D coordinates of the center of mass (e.g., of the
+      pulled selection) to be used as the anchor point for the vectors.
+    """
+
+    # Use pathlib to create a path object for safe and clean file operations
+    output_dir = Path(name)
+    output_dir.mkdir(exist_ok=True)
+    script_path = output_dir / 'vmd_script.tcl'
+    # f = open(name+'/vmd_script.tcl','w')
+
+    with open(script_path, 'w') as f:
+        # Write a Tcl subroutine to draw an arrow. An arrow is constructed from a
+        # cylinder and a cone for a visually distinct representation.
+        f.write('proc vmd_draw_arrow {mol start end} {\n\t# an arrow is made of a cylinder and a cone\n\t set middle [vecadd $start [vecscale 0.9 [vecsub $end $start]]]\n\t graphics $mol cylinder $start $middle radius 0.15\n\t graphics $mol cone $middle $end radius 0.25\n}\n')
+
+        s=5 # Scaling factor for the vectors to make them clearly visible in the visualization
+
+        # Iterate through each vector to generate a drawing command
+        for j in vector:
+            i = j + com # The vectors need to be translated to the center of the mass of the protein and rescaled by the scaling factor (below)
+            f.write('draw arrow {'+str(com[0])+' '+str(com[1])+' '+str(com[2])+'} {'+str(i[0]+(i[0]-com[0])*s)+' '+str(i[1]+(i[1]-com[1])*s)+' '+str(i[2]+(i[2]-com[2])*s)+'}\n' )
+
+
+def main(args: argparse.Namespace):
+    """
+    Main function to orchestrate the generation of simulation files.
+
+    This script sets up a directory structure and all necessary input files
+    (NAMD, Bash, VMD) for a series of steered molecular dynamics (SMD) simulations.
+
+    Parameters:
+    - args (argparse.Namespace): The parsed command-line arguments.
+    """
+
+    # Step 1: Generate the set of vectors for the SMD pulling
+    print('Generating the cone of vectors...')
+    vectors, labels, pull_com = construct_hedgehog(args.input_pdb, args.sel1, args.sel2)
+    hedgehog = (vectors, labels, pull_com)
+
+    # Use pathlib for safe and clean directory creation
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Step 2: Set up the directory structure and create all Gromacs input files
+    print('Generating input files and directory structure...')
+    generate_input(
+        args.output_dir, args.input_pdb, hedgehog, args.template_mdp,
+        args.sel1, args.sel2, args.input_md, n_repeats=args.repeats
+    )
+
+    # Step 3: Generate the bash run scripts for each simulation
+    print('Generating run scripts... NOT implemented yet')
+    #generate_bash_run_scripts(args.output_dir, labels, args.template_run, n_repeats=args.repeats)
+
+    # Step 4: Generate the VMD visualization script
+    print('Generating VMD visualization script...')
+    generate_visualisation_script(args.output_dir, vectors, pull_com)
+
+    print('Generation of SMD input finished!')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="""Generates input files and directory structure for a series of
+                steered molecular dynamics (SMD) simulations - Gromacs version."""
+    )
+
+    # Required simulation files
+    parser.add_argument('output_dir', type=str,
+                        help='The main output directory for all generated files.')
+    parser.add_argument('input_pdb', type=str,
+                        help='Path to the MD PDB file.')
+    parser.add_argument('input_gro', type=str,
+                        help='Path to the Gromacs GRO file.')
+    parser.add_argument('input_md', type=str,
+                        help='Zipped Gromacs files needed to restart simulation (includes: .gro .top toppar .ndx)')
+    parser.add_argument('template_mdp', type=str,
+                        help='Paths to Gromacs input file and run.bash file (.mdp)')
+    parser.add_argument('input_par1', type=str,
+                        help='Path to the primary forcefield parameter file.')
+    parser.add_argument('input_sel1', type=str,
+                        help='MDAnalysis selection criteria for the constrained atoms (fixed group).')
+    parser.add_argument('input_sel2', type=str,
+                        help='MDAnalysis selection criteria for the pulled atoms (pulled group).')
+    parser.add_argument('--repeats', type=int, default=1,
+                        help='Number of simulation repeats for each pulling direction (default: 1).')
+
+    args = parser.parse_args()
+    main(args)

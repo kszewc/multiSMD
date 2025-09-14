@@ -13,7 +13,7 @@ To run this script, the following Python libraries are required:
 
 Author: Katarzyna Walczewska-Szewc
 Affiliation: Nicolaus Copernicus University in Toruń
-Date: 07.09.2024
+Date: 2024-2025
 """
 import argparse
 from pathlib import Path
@@ -183,7 +183,7 @@ def generate_input(name, pdb, psf, vectors, template, sel1, sel2, par1, coor=Non
                 f.close()
 
 
-def generate_bash_run_scripts(name, label, template, n_repeats=1):
+def generate_bash_run_scripts(name: str, label: np.ndarray, template: str, n_repeats: int = 1) -> None:
     """
     Generates and populates a master run script and individual bash scripts for
     each SMD simulation, based on a template.
@@ -277,8 +277,8 @@ def main(args: argparse.Namespace):
     This script sets up a directory structure and all necessary input files
     (NAMD, Bash, VMD) for a series of steered molecular dynamics (SMD) simulations.
 
-    Args:
-        args (argparse.Namespace): The parsed command-line arguments.
+    Parameters:
+    - args (argparse.Namespace): The parsed command-line arguments.
     """
 
     # Step 1: Generate the set of vectors for the SMD pulling
@@ -313,7 +313,7 @@ def main(args: argparse.Namespace):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""Generates input files and directory structure for a series of
-            steered molecular dynamics (SMD) simulations."""
+            steered molecular dynamics (SMD) simulations - NAMD version."""
     )
 
     # Required simulation files
