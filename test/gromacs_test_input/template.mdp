@@ -1,0 +1,55 @@
+define= -DPOSRESFIX -DPOSRES_FC_BB=1000.0 -DPOSRES_FC_SC=100
+integrator              = md
+dt                      = 0.002
+nsteps                  = 1000000
+nstxout                 = 500000
+nstvout                 = 500000
+nstfout                 = 500000
+nstxtcout		= 50000
+nstcalcenergy           = 100
+nstenergy               = 1000
+nstlog                  = 1000
+;
+cutoff-scheme           = Verlet
+nstlist                 = 20
+rlist                   = 1.2
+vdwtype                 = Cut-off
+vdw-modifier            = Force-switch
+rvdw_switch             = 1.0
+rvdw                    = 1.2
+coulombtype             = PME
+rcoulomb                = 1.2
+;
+tcoupl                  = Nose-Hoover
+tc_grps                 = SOLU MEMB SOLV
+tau_t                   = 1.0 1.0 1.0
+ref_t                   = 310 310 310
+;
+;pcoupl                  = Parrinello-Rahman
+;pcoupltype              = semiisotropic
+;tau_p                   = 5.0
+;compressibility         = 4.5e-5  4.5e-5
+;ref_p                   = 1.0     1.0
+;
+constraints             = h-bonds
+constraint_algorithm    = LINCS
+continuation            = yes
+;
+nstcomm                 = 100
+comm_mode               = linear
+comm_grps               = SOLU_MEMB SOLV
+;
+pull			= yes
+pull-group1-name	= PULL
+pull-coord1-type	= umbrella
+pull-coord1-geometry	= direction-periodic
+pull-coord1-groups	= 0 1
+pull-coord1-vec		= -10.0 -10.0 5.0000
+pull-coord1-rate	= 0.005
+pull-group1-pbcatom	= 21486
+pull-pbc-ref-prev-step-com = yes
+;pull-coord1-init	= 0
+pull-coord1-start	= yes
+pull-nstfout		= 1000
+pull_coord1_k		= 1000		; kJ mol^-1 nm^-2
+;

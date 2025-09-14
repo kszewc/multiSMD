@@ -1,0 +1,9 @@
+#!/bin/bash
+
+################################################################################
+INPF= will be updated automatically
+
+OUTF= will be updated automatically
+################################################################################
+
+/home/katarzyna/NAMD_CUDA/namd2 +p2 $INPF > $OUTF 2>&1 

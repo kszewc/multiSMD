@@ -1,0 +1,45 @@
+exclude		scaled1-4
+1-4scaling	1.0
+
+switching	on
+switchdist	8
+cutoff		12
+pairlistdist	14
+margin		0
+stepspercycle	20
+
+wrapWater	on
+wrapAll		on
+rigidBonds	water
+
+timestep 1.0
+
+outputenergies	1000
+outputtiming	1000
+binaryoutput	yes
+outputname	line will be filled automatically
+dcdfreq         5000
+
+langevin            on
+langevinDamping     5
+langevinTemp        300
+langevinHydrogen    no
+
+PME yes
+PMEGridSpacing 1.0
+
+SMD on
+SMDfile line will be filled automatically
+SMDk 4
+SMDVel 0.000001
+SMDDir line will be filled automatically
+SMDOutputFreq 1000
+
+constraints yes
+consref line will be filled automatically
+conskfile line will be filled automatically
+conskcol B
+constraintScaling 0.1
+
+run 500000 # 0.5 ns
+

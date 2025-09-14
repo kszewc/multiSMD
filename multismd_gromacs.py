@@ -267,7 +267,7 @@ def main(args: argparse.Namespace):
 
     # Step 1: Generate the set of vectors for the SMD pulling
     print('Generating the cone of vectors...')
-    vectors, labels, pull_com = construct_hedgehog(args.input_pdb, args.sel1, args.sel2)
+    vectors, labels, pull_com = construct_hedgehog(args.input_pdb, args.input_sel1, args.input_sel2)
     hedgehog = (vectors, labels, pull_com)
 
     # Use pathlib for safe and clean directory creation
@@ -278,14 +278,14 @@ def main(args: argparse.Namespace):
     print('Generating input files and directory structure...')
     generate_input(
         args.output_dir, args.input_pdb, hedgehog, args.template_mdp,
-        args.sel1, args.sel2, args.input_md, n_repeats=args.repeats
+        args.input_sel1, args.input_sel2, args.input_md, n_repeats=args.repeats
     )
 
     # Step 3: Generate the bash run scripts for each simulation
-    print('Generating run scripts... NOT implemented yet')
+    #print('Generating run scripts... NOT implemented yet')
     #generate_bash_run_scripts(args.output_dir, labels, args.template_run, n_repeats=args.repeats)
 
-    # Step 4: Generate the VMD visualization script
+    # Step 3: Generate the VMD visualization script
     print('Generating VMD visualization script...')
     generate_visualisation_script(args.output_dir, vectors, pull_com)
 
@@ -309,8 +309,8 @@ if __name__ == '__main__':
                         help='Zipped Gromacs files needed to restart simulation (includes: .gro .top toppar .ndx)')
     parser.add_argument('template_mdp', type=str,
                         help='Paths to Gromacs input file and run.bash file (.mdp)')
-    parser.add_argument('input_par1', type=str,
-                        help='Path to the primary forcefield parameter file.')
+    #parser.add_argument('input_par1', type=str,
+    #                    help='Path to the primary forcefield parameter file.')
     parser.add_argument('input_sel1', type=str,
                         help='MDAnalysis selection criteria for the constrained atoms (fixed group).')
     parser.add_argument('input_sel2', type=str,
