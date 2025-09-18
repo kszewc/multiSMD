@@ -85,17 +85,62 @@ representing the directions of pulling.
 
 Analysing the output
 ---------------------------------
+This toolkit provides scripts for analyzing Steered Molecular Dynamics (SMD) simulation results from both NAMD and GROMACS molecular dynamics packages. The scripts process simulation outputs to extract mechanical and structural data, generating standardized analysis files and comprehensive visualization plots.
+
 The Analysis.py script facilitates analyzing SMD simulation results. 
-It iterates through subdirectories in the output directory and extracts SMD information from mdrun.log files. Additionally, it checks the corresponding dcd files and calculates the number of hydrogen bonds formed between a given protein selection for each simulation.
+It iterates through subdirectories in the output directory and extracts SMD information from LOG/XVG files. Additionally, it checks the corresponding trajectory files and calculates the number of hydrogen bonds formed between a given protein selection for each simulation.
 The program can be called using the following parameters:
 
 - For NAMD:
-```python analysis_namd.py output_dir 'selection 1' 'selection 2' n_repeats```
+```analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
+                        directory sel_const sel_pull```
+
+positional arguments:
+  directory             SMD output directory
+  sel_const             Selection for constrained part
+  sel_pull              Selection for pulled part
+
+options:
+  -h, --help            show the help message and exit
+  --repeats REPEATS     Number of repeats (auto-detected if not specified)
+  --no-forces           Skip force extraction
+  --no-hb               Skip hydrogen bond calculation
+  --red-factor RED_FACTOR
+                        Data reduction factor for plotting
+  --plot-only           Only create plots, skip data processing
+
 
 - For Gromacs:
-```python analysis_gromacs.py output_dir 'selection 1' 'selection 2' n_repeats```
+```analysis_gromacs.py [-h] [--no-hb] [--red-factor RED_FACTOR] [--plot-only] directory pdb_file sel_const sel_pull```
 
-where:
- - output_dir - is the directory with SMD data
- - selection 1 - is the constrained part of our system
- - selection 2 - is the pulled part of our system
+positional arguments:
+  directory             SMD output directory
+  pdb_file              PDB structure file
+  sel_const             Selection for constrained part
+  sel_pull              Selection for pulled part
+
+options:
+  -h, --help            show the help message and exit
+  --no-hb               Skip hydrogen bond calculation
+  --red-factor RED_FACTOR
+                        Data reduction factor for plotting
+  --plot-only           Only create plots, skip data processing
+
+Both scripts automatically detect the number of directions and repeats. They support multiple simulation repeats with average ± standard deviation.
+
+For each simulation repeat (N) within every pulling direction, the scripts generate three main data files stored in each angle's directory:
+- smd_force_time_N.dat - Contains time series data of pulling forces (time in fs for NAMD/ns for GROMACS vs force in pN)
+- smd_force_dist_N.dat - Records the relationship between inter-group distance (Å) and instantaneous pulling force (pN)
+- smd_hb_time_N.dat - Provides hydrogen bond count over time (ns vs count) between selected donor and acceptor groups
+
+Additionally, a summary file is created:
+- bunch_of_vectors.dat - Contains normalized pulling vectors (x,y,z coordinates) for all simulation directions
+
+The scripts produce comprehensive summary plots:
+all.png (NAMD) / all_smd_results.png (GROMACS) - Composite figures organized by pulling direction. Each row represents a different pulling vector, and three columns for:
+- Force vs Time - Pulling force evolution with ±1 standard deviation
+- Force vs Distance - Mechanical response colored by simulation time
+- HB vs Time - Hydrogen bond dynamics with ±1 standard deviation
+
+
+
