@@ -267,8 +267,8 @@ def create_summary_plots(base_dir: str, red_factor: int = 5) -> None:
     #if any(all_force_dist for _ in sorted_dirs):
     #    cbar = plt.colorbar(scatter, ax=ax[:, 1].ravel().tolist())
     #    cbar.set_label('Time [ns]')
-    
-    fig.tight_layout()
+    fig.subplots_adjust()
+    fig.set_tight_layout(True)
     plt.savefig(os.path.join(base_dir, 'all_smd_results.png'), dpi=600, bbox_inches='tight')
     plt.show()
 
