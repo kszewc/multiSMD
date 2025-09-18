@@ -1,201 +1,302 @@
-from numpy import *
-from MDAnalysis import *
-import os,sys
-import matplotlib.pyplot as plt
+import numpy as np
+from MDAnalysis import Universe
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
+import os
+import sys
+import matplotlib.pyplot as plt
+import argparse
+from typing import List, Tuple, Optional
 
-def distance(a, b):
-    return sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
+def distance(a: np.ndarray, b: np.ndarray) -> float:
+    """Calculate Euclidean distance between two points."""
+    return np.linalg.norm(a - b)
 
-def plot_vectors(filename, theta, phi, ax, start_point=(0, 0, 0)):
-    # Draw a bunch of vectors from file and highlight one to red
+def extract_smd_forces(log_file: str, fix_point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Extract force vs time and force vs distance data from SMD log file.
+    
+    Returns:
+        force_time: array with [time, force]
+        force_dist: array with [distance, force]
+    """
+    force_time_data = []
+    force_dist_data = []
+    
+    with open(log_file, 'r') as f:
+        for line in f:
+            if line.startswith('SMD  ') and len(line.split()) >= 8:
+                parts = line.split()
+                t = float(parts[1])  # timestep
+                r = np.array([float(parts[2]), float(parts[3]), float(parts[4])])  # COM position
+                f_vec = np.array([float(parts[5]), float(parts[6]), float(parts[7])])  # Pulling force
+                
+                force_magnitude = np.linalg.norm(f_vec)
+                dist = distance(r, fix_point)
+                
+                force_time_data.append([t, force_magnitude])
+                force_dist_data.append([dist, force_magnitude])
+    
+    return np.array(force_time_data), np.array(force_dist_data)
 
-    # loading data
-    data = loadtxt(filename)
+def calculate_hydrogen_bonds(psf_file: str, dcd_file: str, sel_const: str, sel_pull: str) -> np.ndarray:
+    """Calculate hydrogen bonds between selections over trajectory."""
+    u = Universe(psf_file, dcd_file)
+    
+    # Hydrogen bonds in both directions
+    hbonds_forward = HBA(
+        universe=u,
+        hydrogens_sel="protein and name H*",
+        donors_sel=sel_const,
+        acceptors_sel=sel_pull
+    )
+    hbonds_forward.run()
+    
+    hbonds_reverse = HBA(
+        universe=u,
+        hydrogens_sel="protein and name H*",
+        donors_sel=sel_pull,
+        acceptors_sel=sel_const
+    )
+    hbonds_reverse.run()
+    
+    # Combine both directions
+    total_hbonds = hbonds_forward.count_by_time() + hbonds_reverse.count_by_time()
+    
+    # Create time array (assuming 0.05 ns per frame)
+    time_points = np.arange(len(total_hbonds)) * 0.05
+    return np.column_stack((time_points, total_hbonds))
 
-    # Setting a vector list
-    vectors = data - start_point
+def detect_smd_directories(base_dir: str) -> List[str]:
+    """Find all SMD simulation directories."""
+    return [d for d in os.listdir(base_dir) if d.startswith('SMD_theta') and os.path.isdir(os.path.join(base_dir, d))]
 
-    # highlighted vector
-    x = cos(deg2rad(phi))*sin(deg2rad(theta))
-    y = sin(deg2rad(phi))*sin(deg2rad(theta))
-    z = cos(deg2rad(theta))
-    red = [x,y,z]
+def detect_repeats(smd_dir: str) -> int:
+    """Detect number of repeats in an SMD directory."""
+    repeats = 0
+    while os.path.exists(os.path.join(smd_dir, f'mdrun{repeats}.log')):
+        repeats += 1
+    return repeats
 
-    # Drawing vectors
-    for vector in vectors:
-        ax.quiver(start_point[0], start_point[1], start_point[2],
-                  vector[0], vector[1], vector[2],
-                  length=1.5, normalize=True, color='gray')
-    ax.quiver(start_point[0], start_point[1], start_point[2],
-                  red[0], red[1], red[2],
-                  length=1.5, normalize=True, color='red')
+def process_smd_simulations(base_dir: str, sel_const: str, sel_pull: str, 
+                           extract_forces: bool = True, calculate_HB: bool = True,
+                           red_factor: int = 5) -> None:
+    """Main function to process all SMD simulations."""
+    
+    # Find reference structure for COM calculation
+    u_ref = Universe(os.path.join(base_dir, 'SMD_constraints.pdb'))
+    fix_point = u_ref.select_atoms(sel_const).center_of_mass()
+    
+    # Find PSF file
+    psf_files = [f for f in os.listdir(base_dir) if f.endswith('.psf')]
+    if not psf_files:
+        raise FileNotFoundError("No PSF file found in base directory")
+    psf_file = os.path.join(base_dir, psf_files[0])
+    
+    # Detect SMD directories and process them
+    smd_dirs = detect_smd_directories(base_dir)
+    bunch_vectors = []
+    
+    for smd_dir in smd_dirs:
+        full_dir = os.path.join(base_dir, smd_dir)
+        n_repeats = detect_repeats(full_dir)
+        
+        print(f"Processing {smd_dir} with {n_repeats} repeats")
+        
+        for n in range(n_repeats):
+            log_file = os.path.join(full_dir, f'mdrun{n}.log')
+            dcd_file = os.path.join(full_dir, f'md{n}.dcd')
+            
+            # Extract forces
+            if extract_forces and os.path.exists(log_file):
+                force_time, force_dist = extract_smd_forces(log_file, fix_point)
+                
+                np.savetxt(os.path.join(full_dir, f'smd_force_time{n}.dat'), 
+                          force_time, header='time [fs] vs force of pulling')
+                np.savetxt(os.path.join(full_dir, f'smd_force_dist{n}.dat'), 
+                          force_dist, header='distance between COMs vs force of pulling')
+            
+            # Calculate hydrogen bonds
+            if calculate_HB and os.path.exists(dcd_file):
+                print('Calculating hydrogen bonds...')
+                hb_data = calculate_hydrogen_bonds(psf_file, dcd_file, sel_const, sel_pull)
+                np.savetxt(os.path.join(full_dir, f'smd_hb_time{n}.dat'), 
+                          hb_data, header='time [ns] vs number of hydrogen bonds between domains')
+        
+        # Extract pulling vector from directory name
+        parts = smd_dir.split('_')
+        theta = float(parts[2])
+        phi = float(parts[4])
+        
+        x = np.cos(np.deg2rad(phi)) * np.sin(np.deg2rad(theta))
+        y = np.sin(np.deg2rad(phi)) * np.sin(np.deg2rad(theta))
+        z = np.cos(np.deg2rad(theta))
+        
+        bunch_vectors.append([x, y, z])
+    
+    # Save pulling vectors
+    np.savetxt(os.path.join(base_dir, 'bunch_of_vectors.dat'), bunch_vectors)
 
-    #ax.text(start_point[0] + red[0]*1.1, start_point[1] + red[1]*1.1, start_point[2] + red[2]*1.1,
-    #                f"θ={int(theta)}, φ={int(phi)}", color='red')
-    ax.set_title(f"θ={int(theta)}, φ={int(phi)}")
-    # Plot range
-    ax.set_xlim(min(data[:, 0]) - 0.1, max(data[:, 0]) + 0.1)
-    ax.set_ylim(min(data[:, 1]) - 0.1, max(data[:, 1]) + 0.1)
-    ax.set_zlim(min(data[:, 2]) - 0.1, max(data[:, 2]) + 0.1)
-    ax.set_axis_off()
+def create_summary_plots(base_dir: str, red_factor: int = 5) -> None:
+    """Create summary plots for all SMD simulations."""
+    smd_dirs = detect_smd_directories(base_dir)
+    
+    # Default sorting for common pulling directions
+    default_order = [
+        'SMD_theta_0_phi_0', 'SMD_theta_45_phi_0', 'SMD_theta_45_phi_90',
+        'SMD_theta_45_phi_180', 'SMD_theta_45_phi_270', 'SMD_theta_90_phi_0',
+        'SMD_theta_90_phi_90', 'SMD_theta_90_phi_180', 'SMD_theta_90_phi_270'
+    ]
+    
+    # Use default order if available, otherwise sort alphabetically
+    sorted_dirs = [d for d in default_order if d in smd_dirs]
+    if not sorted_dirs:
+        sorted_dirs = sorted(smd_dirs)
+    
+    n_dirs = len(sorted_dirs)
+    fig, ax = plt.subplots(n_dirs, 3, sharex='col', figsize=(10, 3 * n_dirs))
+    
+    if n_dirs == 1:
+        ax = ax.reshape(1, -1)
+    
+    # Find global maxima for consistent scaling
+    max_force = 0
+    max_HB = 0
+    
+    for dir_name in sorted_dirs:
+        n_repeats = detect_repeats(os.path.join(base_dir, dir_name))
+        for n in range(n_repeats):
+            force_file = os.path.join(base_dir, dir_name, f'smd_force_time{n}.dat')
+            hb_file = os.path.join(base_dir, dir_name, f'smd_hb_time{n}.dat')
+            
+            if os.path.exists(force_file):
+                force_data = np.loadtxt(force_file)
+                max_force = max(max_force, np.max(force_data[:, 1]) if force_data.size > 0 else 0)
+            
+            if os.path.exists(hb_file):
+                hb_data = np.loadtxt(hb_file)
+                max_HB = max(max_HB, np.max(hb_data[:, 1]) if hb_data.size > 0 else 0)
+    
+    # Add some padding to maxima
+    max_force *= 1.1
+    max_HB *= 1.1
+    
+    # Create plots
+    for i, dir_name in enumerate(sorted_dirs):
+        n_repeats = detect_repeats(os.path.join(base_dir, dir_name))
+        
+        # Collect data from all repeats
+        all_force_time = []
+        all_force_dist = []
+        all_hb_time = []
+        
+        for n in range(n_repeats):
+            force_time_file = os.path.join(base_dir, dir_name, f'smd_force_time{n}.dat')
+            force_dist_file = os.path.join(base_dir, dir_name, f'smd_force_dist{n}.dat')
+            hb_time_file = os.path.join(base_dir, dir_name, f'smd_hb_time{n}.dat')
+            
+            if os.path.exists(force_time_file):
+                data = np.loadtxt(force_time_file)
+                all_force_time.append(data)
+            
+            if os.path.exists(force_dist_file):
+                data = np.loadtxt(force_dist_file)
+                all_force_dist.append(data)
+            
+            if os.path.exists(hb_time_file):
+                data = np.loadtxt(hb_time_file)
+                all_hb_time.append(data)
+        
+        # Plot force vs time
+        if all_force_time:
+            times = all_force_time[0][::red_factor, 0] / 500000  # Convert fs to ns
+            forces = np.array([data[::red_factor, 1] for data in all_force_time])
+            
+            mean_force = np.mean(forces, axis=0)
+            std_force = np.std(forces, axis=0)
+            
+            ax[i, 0].fill_between(times, mean_force + std_force, mean_force - std_force, 
+                                 alpha=0.3, label='±1 SD')
+            ax[i, 0].plot(times, mean_force, linewidth=2, label='Mean')
+            ax[i, 0].set_ylabel('Force [pN]')
+            ax[i, 0].set_ylim(0, max_force)
+        
+        # Plot force vs distance
+        if all_force_dist:
+            distances = np.array([data[::red_factor, 0] for data in all_force_dist])
+            forces = np.array([data[::red_factor, 1] for data in all_force_dist])
+            times = all_force_time[0][::red_factor, 0] if all_force_time else None
+            
+            mean_force = np.mean(forces, axis=0)
+            
+            if times is not None:
+                scatter = ax[i, 1].scatter(np.mean(distances, axis=0), mean_force, 
+                                          c=times/500000, s=10, cmap='viridis')
+            else:
+                ax[i, 1].plot(np.mean(distances, axis=0), mean_force, linewidth=2)
+            
+            ax[i, 1].set_ylabel('Force [pN]')
+            ax[i, 1].set_ylim(0, max_force)
+        
+        # Plot hydrogen bonds vs time
+        if all_hb_time:
+            times = all_hb_time[0][:, 0]
+            hb_counts = np.array([data[:, 1] for data in all_hb_time])
+            
+            mean_hb = np.mean(hb_counts, axis=0)
+            std_hb = np.std(hb_counts, axis=0)
+            
+            ax[i, 2].fill_between(times, mean_hb + std_hb, mean_hb - std_hb, alpha=0.3)
+            ax[i, 2].plot(times, mean_hb, linewidth=2)
+            ax[i, 2].set_ylabel('HB number')
+            ax[i, 2].set_ylim(0, max_HB)
+        
+        # Set title with direction info
+        ax[i, 0].set_title(dir_name, fontsize=10)
+    
+    # Set common labels
+    for i in range(n_dirs):
+        ax[i, 0].set_ylabel('Force [pN]')
+        ax[i, 1].set_ylabel('Force [pN]')
+        ax[i, 2].set_ylabel('HB number')
+    
+    ax[-1, 0].set_xlabel('Time [ns]')
+    ax[-1, 1].set_xlabel(r'Distance [$\AA$]')
+    ax[-1, 2].set_xlabel('Time [ns]')
+    
+    # Add colorbar for force vs distance plot
+    #if any(all_force_dist for _ in sorted_dirs):
+    #    cbar = plt.colorbar(scatter, ax=ax[:, 1].ravel().tolist())
+    #    cbar.set_label('Time [ns]')
+    
+    fig.tight_layout()
+    plt.savefig(os.path.join(base_dir, 'all_smd_results.png'), dpi=600, bbox_inches='tight')
+    plt.show()
 
-name = str(sys.argv[1]) # Name of your SMD output directory
-pdb = str(sys.argv[5]) #pdb file for structure related calculation
-sel_const = str(sys.argv[2]) # First selection (to calculate center of mass and H-bonds) - constrained part
-sel_pull = str(sys.argv[3]) # Second selection (to calculate center of mass and H-bonds) - pulled part
-n_repeats = int(sys.argv[4]) # Here is the number of simulation repeats for each pulling direction
-#extract_forces = False # change it to False after force files are generated
-calculate_HB = False # change it to False after HB files are generated
-red = 5 # reducing factor for too dense data
-
-list_of_dirs = [subdir for subdir in os.listdir(name) if subdir[0:9] == 'SMD_theta']
-
-## this part takes some time, since it is analysing your SMD trajectories looking for possible H-bonds between selections
-u = Universe(name+'/'+pdb)
-fix = u.select_atoms(sel_const).center_of_mass() #
-bunch = [] #here the information about pulling vectors will be stored
-
-for dir in list_of_dirs:
-    print(dir," calculations started.")
-    for n in range(1,n_repeats+1):
-        #f = open(name+'/'+dir+f'/smd{n}_pullf.xvg','r')
-        tf= loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)
-        td= loadtxt(name+'/'+dir+f'/smd{n}_pullx.xvg',skiprows=17)
-
-
-
-
-        if calculate_HB:
-            ht = open(name + '/' + dir + f'/smd_hb_time{n}.dat', 'w')
-            ht.write('# time [fs] vs number of hydrogen bonds between domains\n')
-            # Hydrogen bonds number vs time
-            #psf = [file for file in os.listdir(name) if file[-3:] == 'psf']
-            print('Hydrogen bonds calculating - that may take some time...')
-            u = Universe(name+'/'+pdb ,name+'/'+dir+f'/smd{n}.xtc')
-            hbonds = HBA(universe=u,hydrogens_sel="protein and name H*",donors_sel=sel_const,acceptors_sel=sel_pull)
-            hbonds.run()
-            out = hbonds.count_by_time()
-            hbonds_rev = HBA(universe=u,hydrogens_sel="protein and name H*",donors_sel=sel_pull,acceptors_sel=sel_const)
-            hbonds_rev.run()
-            out2 = hbonds_rev.count_by_time()
-            t=0
-            for i in (out+out2):
-                ht.write(str(t)+' '+str(i)+'\n')
-                t+= 0.05 #[ns]
-            ht.close()
-
-
-
-    #Writing down used pulling vectors
-    theta = double(dir.split('_')[2])
-    phi = double(dir.split('_')[4])
-    x = cos(deg2rad(phi))*sin(deg2rad(theta))
-    y = sin(deg2rad(phi))*sin(deg2rad(theta))
-    z = cos(deg2rad(theta))
-    bunch.append([x,y,z])
-savetxt(name+'/bunch_of_vectors.dat',bunch)
-
-
-
-
-# Plots - this script is adjusted for 9 pulling directions. If you want more, please increase the number of rows (9) and number of columns (3) accordingly
-# Multiple repeats results are plotted as average value + outline based on calculated standard deviation value.
-
-fig, ax = plt.subplots(3,3,sharex='col',figsize=(7,4))
-#figv, axsv = plt.subplots(3, 1, sharex='col', figsize=(3, 4), subplot_kw={'projection': '3d'})
-#ax[0,0] = fig.add_subplot( projection='3d')
-i=0
-sorted=['SMD_theta_0_phi_0','SMD_theta_45_phi_0','SMD_theta_45_phi_90','SMD_theta_45_phi_180','SMD_theta_45_phi_270','SMD_theta_90_phi_0','SMD_theta_90_phi_90','SMD_theta_90_phi_180','SMD_theta_90_phi_270'] #you might want to change order of your directions to plot
-
-# looking for a maximum force value and HB numbers in all files to rescale figures
-run = range(0,n_repeats)
-
-max_force = max( [max([max(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:,1]) for n in run]) for dir in sorted[:]] )
-max_HB = max( [max([max(loadtxt(name+'/'+dir+f'/smd_hb_time{n}.dat')[:,1]) for n in run]) for dir in sorted[:]] )
-print(max_force, max_HB)
-
-
-
-scale = [250,640,389] #where your data stop (if you have different length of each repeat)
-for dir, s in zip(sorted[:],scale):
-    g = s*5
-    gg = s
-    print(dir)
-
-    theta = double(dir.split('_')[2]) #these values are to draw bunch of vectors
-    phi = double(dir.split('_')[4])
-
-
-
-    for n in range(1,n_repeats+1):
-
-        if n == 1:
-            ft = reshape(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:g,0],(len(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:g]),1))
-            ht = reshape(loadtxt(name+'/'+dir+f'/smd_hb_time{n}.dat')[:gg,0],(len(loadtxt(name+'/'+dir+f'/smd_hb_time{n}.dat')[:gg]),1))
-            #fd = reshape(loadtxt(name+'/'+dir+f'/smd{n}_pullx.xvg',skiprows=17)[:,0],(len(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:]),1))
-            print(shape(ft),shape(ht))
-
-
-        ft = concatenate((ft,reshape(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:g,1],(len(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:g]),1))),axis=1)
-        ht = concatenate((ht, reshape(loadtxt(name+'/'+dir+f'/smd_hb_time{n}.dat')[:gg,1],(len(loadtxt(name+'/'+dir+f'/smd_hb_time{n}.dat')[:gg]),1))),axis=1)
-        #fd = concatenate((fd, reshape(loadtxt(name+'/'+dir+f'/smd{n}_pullx.xvg',skiprows=17)[:,1],(len(loadtxt(name+'/'+dir+f'/smd{n}_pullf.xvg',skiprows=17)[:]),1))),axis=1)
-        print(shape(ft),shape(ht))
-
-
-    # filename = name+'/bunch_of_vectors.dat'  # Change to your filename
-    # axsv[i].remove()
-    # axsv[i] = figv.add_subplot(3,1,1+i,projection='3d')
-    # plot_vectors(filename,theta,phi,axsv[i])
-
-    print(shape(ft))
-    for j in range(shape(ft)[0]):
-        for k in [1,2,3]:
-            if ft[j,k] < 0 or ft[j,k] > 600:
-                ft[j,k] = ft[j-1,k]
-
-    #Force vs time
-    ax[i, 0].fill_between(ft[:g:red, 0] / 1000, mean(ft[:g:red,1:],axis=1) + std(ft[:g:red,1:],axis=1), mean(ft[:g:red,1:],axis=1) - std(ft[:g:red,1:],axis=1), linewidth=1,alpha=0.5)
-    ax[i,0].plot(ft[:g:red,0]/1000,   mean(ft[:g:red,1:],axis=1)    ,linewidth=2)
-    ax[i,0].set_xlim(0,10)
-    ax[i, 0].set_ylim(0, 500)#max_force)
-    #ax[i,0].set_xlabel('Time [ns]').set_fontsize(16)
-    #ax[i,0].set_xticks(14)
-    if i == 1: ax[i,0].set_ylabel('Force [pN]')
-    #ax[i,0].yticks(size=14)
-
-    #Force vs distance
-    #ax[i, 1].fill_between(fd[:, 0], mean(fd[:, 1:], axis=1) + std(fd[:, 1:], axis=1),
-    #                      mean(fd[:, 1:], axis=1) - std(fd[:, 1:], axis=1), linewidth=1, alpha=0.5)
-    #ax[i,1].scatter(fd[::red,0],mean(fd[::red,1:],axis=1),s=2,c=ft[::red,0])
-    #ax[i,1].set_xlim(30,55)
-    #ax[i,1].set_ylim(0, max_force)
-    #ax[i,1].set_xlabel(r'Distance [$\AA$]').set_fontsize(16)
-
-    #if i == 4: ax[i,1].set_ylabel('Force [pN]')
-    #
-
-    # #hydrogen bonds number vs time
-
-    ax[i, 2].fill_between(ht[:gg, 0]*0.2, mean(ht[:gg, 1:], axis=1) + std(ht[:gg, 1:], axis=1),
-                          mean(ht[:gg, 1:], axis=1) - std(ht[:gg, 1:], axis=1), linewidth=1, alpha=0.5)
-    ax[i,2].plot(ht[:gg,0]*0.2,mean(ht[:gg,1:],axis=1),linewidth=2)
-    ax[i,2].set_xlim(0,10)
-    ax[i,2].set_ylim(0,40)
-
-    if i == 1: ax[i,2].set_ylabel('HB number')
-    i+= 1
-
-
-ax[2,0].set_xlabel('Time [ns]')
-ax[2,1].set_xlabel(r'Distance [$\AA$]')
-ax[2,2].set_xlabel('Time [ns]')
-
-fig.tight_layout()
-plt.savefig(name+'/all.png',dpi=600)
-
-
-plt.show()
+def main():
+    """Main function with argument parsing."""
+    parser = argparse.ArgumentParser(description='Analyze SMD simulation data')
+    parser.add_argument('directory', help='SMD output directory')
+    parser.add_argument('sel_const', help='Selection for constrained part')
+    parser.add_argument('sel_pull', help='Selection for pulled part')
+    parser.add_argument('--repeats', type=int, help='Number of repeats (auto-detected if not specified)')
+    parser.add_argument('--no-forces', action='store_true', help='Skip force extraction')
+    parser.add_argument('--no-hb', action='store_true', help='Skip hydrogen bond calculation')
+    parser.add_argument('--red-factor', type=int, default=5, help='Data reduction factor for plotting')
+    parser.add_argument('--plot-only', action='store_true', help='Only create plots, skip data processing')
+    
+    args = parser.parse_args()
+    
+    if not args.plot_only:
+        process_smd_simulations(
+            args.directory,
+            args.sel_const,
+            args.sel_pull,
+            extract_forces=not args.no_forces,
+            calculate_HB=not args.no_hb,
+            red_factor=args.red_factor
+        )
+    
+    create_summary_plots(args.directory, args.red_factor)
 
 if __name__ == '__main__':
-    pass
+    main()
