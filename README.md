@@ -92,8 +92,8 @@ It iterates through subdirectories in the output directory and extracts SMD info
 The program can be called using the following parameters:
 
 - For NAMD:
-```analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
-                        directory sel_const sel_pull```
+analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
+                        directory sel_const sel_pull
 
 positional arguments:
   directory             SMD output directory
@@ -111,7 +111,7 @@ options:
 
 
 - For Gromacs:
-```analysis_gromacs.py [-h] [--no-hb] [--red-factor RED_FACTOR] [--plot-only] directory pdb_file sel_const sel_pull```
+analysis_gromacs.py [-h] [--no-hb] [--red-factor RED_FACTOR] [--plot-only] directory pdb_file sel_const sel_pull
 
 positional arguments:
   directory             SMD output directory
