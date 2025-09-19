@@ -19,6 +19,8 @@ The required dependencies can be installed in two ways:
 
 For consistent and reproducible results, the recommended method is to use the second one with provided requirements.txt file, which specifies the exact versions of all tested dependencies.
 
+To avoid potential compatibility issues, we recommend using a Python virtual environment such as `virtualenv` or `venv`. This isolates the project's dependencies from your system-wide Python installation.
+
 Launching SMD scripts
 ------------------------
 Run the SMD scripts in terminal by typing in the command line:
