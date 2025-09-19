@@ -91,8 +91,7 @@ The Analysis.py script facilitates analyzing SMD simulation results.
 It iterates through subdirectories in the output directory and extracts SMD information from LOG/XVG files. Additionally, it checks the corresponding trajectory files and calculates the number of hydrogen bonds formed between a given protein selection for each simulation.
 The program can be called using the following parameters:
 
-- For NAMD:
-```analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
+- For NAMD:```analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
                         directory sel_const sel_pull```
 
 positional arguments:
