@@ -45,7 +45,7 @@ Run the SMD scripts in terminal by typing in the command line:
     - input_pdb:          Path to the MD PDB file.
     - input_gro:          Path to the Gromacs GRO file.
     - input_md:           Zipped Gromacs files needed to restart simulation (includes: .gro .top toppar .ndx)
-    - template_mdp:       Paths to Gromacs input file and run.bash file (.mdp)
+    - template_mdp:       Paths to Gromacs input file (.mdp)
     - input_sel1:         MDAnalysis selection criteria for the constrained atoms (fixed group).
     - input_sel2:         MDAnalysis selection criteria for the pulled atoms (pulled group).
 
@@ -69,7 +69,7 @@ The default mode of SMD simulation in here is constant Velocity SMD, which means
 Output
 --------------------------------
 The program generates by a directory containing the input files and subdirectories corresponding to the "pull" directions. 
-Each subdirectory contains an appropriately prepared input file to NAMD or Gromacs, and a bash script to run the given simulation (based on the provided template.run). 
+Each subdirectory contains an appropriately prepared input file to NAMD or Gromacs, and a bash script to run the given simulation (based on the provided template.run - only for NAMD). 
 For NAMD you can run these scripts each separately:
 
 ```. Output/SMD_theta_0_phi_0/run.bash``` (the "dot" will run the script exactly where the run.bash file is)
@@ -92,8 +92,8 @@ It iterates through subdirectories in the output directory and extracts SMD info
 The program can be called using the following parameters:
 
 - For NAMD:
-analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
-                        directory sel_const sel_pull
+```analysis_namd.py [-h] [--repeats REPEATS] [--no-forces] [--no-hb] [--red-factor RED_FACTOR] [--plot-only]
+                        directory sel_const sel_pull```
 
 positional arguments:
   directory             SMD output directory
@@ -111,7 +111,7 @@ options:
 
 
 - For Gromacs:
-analysis_gromacs.py [-h] [--no-hb] [--red-factor RED_FACTOR] [--plot-only] directory pdb_file sel_const sel_pull
+```analysis_gromacs.py [-h] [--no-hb] [--red-factor RED_FACTOR] [--plot-only] directory pdb_file sel_const sel_pull```
 
 positional arguments:
   directory             SMD output directory
