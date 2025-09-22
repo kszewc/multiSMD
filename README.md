@@ -76,11 +76,11 @@ The default mode of SMD simulation in here is constant Velocity SMD, which means
 
 Output structure
 --------------------------------
-TThe program creates a structured output directory containing all necessary files for multi-directional SMD simulations:
+The program creates a structured output directory containing all necessary files for multi-directional SMD simulations:
 Each subdirectory contains an appropriately prepared input file to NAMD or Gromacs, and a bash script to run the given simulation (based on the provided template.run - only for NAMD). 
 For NAMD you can run these scripts each separately:
 
-```. Output/SMD_theta_0_phi_0/run.bash``` (the "dot" will run the script exactly where the run.bash file is)
+```. Output/SMD_theta_0_phi_0/run.bash``` 
  
 or together using the master.run script:
 
