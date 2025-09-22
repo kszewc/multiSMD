@@ -1,6 +1,6 @@
-# multiSMD NAMD
+# multiSMD
 
-This project is a user-friendly Python application that automates the generation of input files for multi-directional Steered Molecular Dynamics (SMD) simulations. The final application will be deployed as a web-based tool for streamlined execution.
+multiSMD is a Python application that automates the generation and analysis of input files for multi-directional Steered Molecular Dynamics (SMD) simulations. The tool supports both NAMD and GROMACS molecular dynamics packages, enabling comprehensive pulling simulations along multiple spatial vectors.
 
 Installation
 --------------------------
@@ -25,7 +25,7 @@ Launching SMD scripts
 ------------------------
 Run the SMD scripts in terminal by typing in the command line:
 
-- For NAMD: ``` multismd_namd.py [-h] [--repeats REPEATS] output_dir input_pdb input_psf input_vel input_coor input_xsc input_par1 template_inp template_run input_sel1 input_sel2```   
+- For NAMD: ``` python multismd_namd.py [-h] [--repeats REPEATS] output_dir input_pdb input_psf input_vel input_coor input_xsc input_par1 template_inp template_run input_sel1 input_sel2```   
 
   where:
     - output_dir:         The main output directory for all generated files.
@@ -40,7 +40,10 @@ Run the SMD scripts in terminal by typing in the command line:
     - input_sel1:         MDAnalysis selection criteria for the constrained atoms (fixed group).
     - input_sel2:         MDAnalysis selection criteria for the pulled atoms (pulled group).
 
-- For Gromacs: ```multismd_gromacs.py [-h] [--repeats REPEATS] output_dir input_pdb input_gro input_md template_mdp input_sel1 input_sel2```
+ Example: 
+ ```python multismd_namd.py smd_output system.pdb system.psf system.vel system.coor system.xsc par_all36_prot.prm template.inp template.run 'name CA and resid 1:50' 'name CA and resid 100:150'```
+
+- For Gromacs: ```python multismd_gromacs.py [-h] [--repeats REPEATS] output_dir input_pdb input_gro input_md template_mdp input_sel1 input_sel2```
  
   where:
     - output_dir:         The main output directory for all generated files.
@@ -51,16 +54,19 @@ Run the SMD scripts in terminal by typing in the command line:
     - input_sel1:         MDAnalysis selection criteria for the constrained atoms (fixed group).
     - input_sel2:         MDAnalysis selection criteria for the pulled atoms (pulled group).
 
+  Example:
+  ```python multismd_gromacs.py smd_output system.pdb system.gro md_files.zip template.mdp 'name CA and resid 1:50' 'name CA and resid 100:150'```
+
 **Detailed parameters descriptions** :
 
 
-**input_par1**    - if you have only one file with Charmm parameters, write it here
+**input_par1**    - if you have only one file with e.g. Charmm parameters, write it here
   (e.g. param1.inp). However, if there are more parameter files, you have to 
   put them into the toppar folder and "zip" it (_zip -r toppar.zip toppar_)
 
-**template.inp**    - Based on this file, the input to SMD will be generated, so __it is important that the section describing SMD and constraints (SMD on ... constraints yes, etc.) is present.__ The exemplary input file can be found in the TEST.zip folder. __To avoid possible artifacts, please make sure that SMD simulations are performed in the NVT ensemble__ (the pressure control should be set off).
+**template.inp**    - Based on this file, the input to NAMD SMD will be generated, so __it is important that the section describing SMD and constraints (SMD on ... constraints yes, etc.) is present.__ The exemplary input file can be found in the TEST.zip folder. __To avoid possible artifacts, please make sure that SMD simulations are performed in the NVT ensemble__ (the pressure control should be set off).
 
-**template.run**    - A sample script to run the simulation on the computer you intend to count - containing the namd running line. Input and output files will be defined as _INPF_ and _OUTF), so this is how they should be treated in the namd running line (_/home/user/NAMD/namd2 +p2 $INPF > $OUTF 2>&_). The exemplary template.run file can be found in TEST.zip.
+**template.run**    - A sample script to run the NAMD simulation on the computer you intend to count - containing the namd running line. Input and output files will be defined as _INPF_ and _OUTF), so this is how they should be treated in the namd running line (_/home/user/NAMD/namd2 +p2 $INPF > $OUTF 2>&_). The exemplary template.run file can be found in TEST.zip.
 
 **input_sel1** and **input_sel2**    - selections of constrained and pulled atoms 
  in SMD simulation. These are text variables, necessarily in quotation marks ''. The convention for atom selection is as in MDAnalysis (https://docs.mdanalysis.org/1.1.0/documentation_pages/selections.html) i.e., 'name CA and protein and segid A B C' or 'name CA and resid 1:55 66:128', or 'name CA and resname PRO ALA NBD'. Unfortunately, there is no 'chain' selection, so you have to use 'segid' instead.
@@ -68,9 +74,9 @@ It is recommended to restrain only CA atoms. The script produces an input file t
 
 The default mode of SMD simulation in here is constant Velocity SMD, which means that the pulling force will be adjusted to provide a constant velocity in the direction of pulling.
 
-Output
+Output structure
 --------------------------------
-The program generates by a directory containing the input files and subdirectories corresponding to the "pull" directions. 
+TThe program creates a structured output directory containing all necessary files for multi-directional SMD simulations:
 Each subdirectory contains an appropriately prepared input file to NAMD or Gromacs, and a bash script to run the given simulation (based on the provided template.run - only for NAMD). 
 For NAMD you can run these scripts each separately:
 
@@ -82,7 +88,7 @@ or together using the master.run script:
 
 These will start the SMD simulation.
 
-For visualisation purposes, the program generates a tcl script for VMD (_vmd_script.tcl_), which draw the bunch of vectors 
+For visualisation purposes, the program generates a tcl script for VMD (_vmd_script.tcl_), which draw a set of vectors 
 representing the directions of pulling. 
 
 Analysing the output
